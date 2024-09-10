@@ -92,47 +92,48 @@ function App() {
     if (savedCode) {
       setCode(savedCode);
     }
-
-    const term = new Terminal({
-      cursorBlink: true,
-      theme: {
-        background: '#1e1e1e',
-      },
-    });
-    const fitAddon = new FitAddon();
-    term.loadAddon(fitAddon);
-    term.open(terminalRef.current);
-    fitAddon.fit();
-    setTerminal(term);
-
-    term.onKey(({ key, domEvent }) => {
-      if (isWaitingForInput) {
-        if (domEvent.keyCode === 13) { // Enter key
-          term.write('\r\n');
-          setIsWaitingForInput(false);
-          handleInput(inputBuffer);
-          setInputBuffer('');
-        } else if (domEvent.keyCode === 8) { // Backspace
-          if (inputBuffer.length > 0) {
-            term.write('\b \b');
-            setInputBuffer(inputBuffer.slice(0, -1));
-          }
-        } else {
-          term.write(key);
-          setInputBuffer(inputBuffer + key);
-        }
-      }
-    });
-
-    return () => {
-      term.dispose();
-    };
   }, []);
 
-  const handleEditorChange = (value) => {
-    setCode(value);
-    localStorage.setItem('pythonCode', value);
-  };
+  useEffect(() => {
+    if (terminalRef.current && !terminal) {
+      const term = new Terminal({
+        cursorBlink: true,
+        theme: {
+          background: '#1e1e1e',
+        },
+      });
+      const fitAddon = new FitAddon();
+      term.loadAddon(fitAddon);
+      term.open(terminalRef.current);
+      fitAddon.fit();
+      setTerminal(term);
+
+      term.onKey(({ key, domEvent }) => {
+        if (isWaitingForInput) {
+          if (domEvent.keyCode === 13) { // Enter key
+            term.write('\r\n');
+            setIsWaitingForInput(false);
+            handleInput(inputBuffer);
+            setInputBuffer('');
+          } else if (domEvent.keyCode === 8) { // Backspace
+            if (inputBuffer.length > 0) {
+              term.write('\b \b');
+              setInputBuffer(inputBuffer.slice(0, -1));
+            }
+          } else {
+            term.write(key);
+            setInputBuffer(inputBuffer + key);
+          }
+        }
+      });
+    }
+
+    return () => {
+      if (terminal) {
+        terminal.dispose();
+      }
+    };
+  }, [terminalRef, terminal, isWaitingForInput, inputBuffer]);
 
   const handleInput = async (input) => {
     try {
@@ -148,6 +149,11 @@ function App() {
       setOutput(prevOutput => prevOutput + 'An error occurred while processing input.\n');
       terminal.writeln('An error occurred while processing input.');
     }
+  };
+
+  const handleEditorChange = (value) => {
+    setCode(value);
+    localStorage.setItem('pythonCode', value);
   };
 
   const handleSubmit = async () => {
