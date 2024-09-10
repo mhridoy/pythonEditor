@@ -12,7 +12,7 @@ function App() {
 
   const handleSubmit = async () => {
     try {
-      const response = await axios.post('http://localhost:5000/execute', { code });
+      const response = await axios.post('https://vuln0sec.pythonanywhere.com/excute', { code });
       setOutput(response.data.output);
     } catch (error) {
       console.error('Error:', error);
