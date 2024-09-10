@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import Editor from "@monaco-editor/react";
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { Button, IconButton, TextField, Modal, Fab, CircularProgress } from '@mui/material';
+import { Button, IconButton, TextField, Modal, Fab, CircularProgress, Box } from '@mui/material';
 import { PlayArrow, Save, FolderOpen, Code } from '@mui/icons-material';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+import Tab from '@mui/material/Tab';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import python from 'react-syntax-highlighter/dist/esm/languages/hljs/python';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
+import { Terminal } from 'xterm';
+import { FitAddon } from 'xterm-addon-fit';
+import 'xterm/css/xterm.css';
 
 SyntaxHighlighter.registerLanguage('python', python);
 
@@ -49,6 +54,14 @@ const ModalContent = styled.div`
   transform: translate(-50%, -50%);
 `;
 
+const TerminalWrapper = styled.div`
+  height: 200px;
+  background-color: #1e1e1e;
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 20px;
+`;
+
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
@@ -62,18 +75,58 @@ const darkTheme = createTheme({
 });
 
 function App() {
-  const [code, setCode] = useState('# Write your Python code here\nprint("Hello, World!")');
+  const [code, setCode] = useState('# Write your Python code here\nname = input("Enter your name: ")\nprint(f"Hello, {name}!")');
   const [output, setOutput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [snippetName, setSnippetName] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('save');
+  const [tabValue, setTabValue] = useState('1');
+  const terminalRef = useRef(null);
+  const [terminal, setTerminal] = useState(null);
+  const [inputBuffer, setInputBuffer] = useState('');
+  const [isWaitingForInput, setIsWaitingForInput] = useState(false);
 
   useEffect(() => {
     const savedCode = localStorage.getItem('pythonCode');
     if (savedCode) {
       setCode(savedCode);
     }
+
+    const term = new Terminal({
+      cursorBlink: true,
+      theme: {
+        background: '#1e1e1e',
+      },
+    });
+    const fitAddon = new FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(terminalRef.current);
+    fitAddon.fit();
+    setTerminal(term);
+
+    term.onKey(({ key, domEvent }) => {
+      if (isWaitingForInput) {
+        if (domEvent.keyCode === 13) { // Enter key
+          term.write('\r\n');
+          setIsWaitingForInput(false);
+          handleInput(inputBuffer);
+          setInputBuffer('');
+        } else if (domEvent.keyCode === 8) { // Backspace
+          if (inputBuffer.length > 0) {
+            term.write('\b \b');
+            setInputBuffer(inputBuffer.slice(0, -1));
+          }
+        } else {
+          term.write(key);
+          setInputBuffer(inputBuffer + key);
+        }
+      }
+    });
+
+    return () => {
+      term.dispose();
+    };
   }, []);
 
   const handleEditorChange = (value) => {
@@ -81,14 +134,38 @@ function App() {
     localStorage.setItem('pythonCode', value);
   };
 
+  const handleInput = async (input) => {
+    try {
+      const response = await axios.post('https://vuln0sec.pythonanywhere.com/input', { input });
+      const newOutput = response.data.output;
+      setOutput(prevOutput => prevOutput + newOutput);
+      terminal.writeln(newOutput);
+      if (newOutput.includes('input')) {
+        setIsWaitingForInput(true);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      setOutput(prevOutput => prevOutput + 'An error occurred while processing input.\n');
+      terminal.writeln('An error occurred while processing input.');
+    }
+  };
+
   const handleSubmit = async () => {
     setIsLoading(true);
+    setOutput('');
+    terminal.clear();
     try {
       const response = await axios.post('https://vuln0sec.pythonanywhere.com/execute', { code });
-      setOutput(response.data.output);
+      const initialOutput = response.data.output;
+      setOutput(initialOutput);
+      terminal.writeln(initialOutput);
+      if (initialOutput.includes('input')) {
+        setIsWaitingForInput(true);
+      }
     } catch (error) {
       console.error('Error:', error);
       setOutput('An error occurred while executing the code.');
+      terminal.writeln('An error occurred while executing the code.');
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +188,10 @@ function App() {
         setSnippetName('');
       }
     }
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue);
   };
 
   return (
@@ -149,20 +230,32 @@ function App() {
             </IconButton>
           </div>
         </ButtonGroup>
-        <AnimatePresence>
-          {output && (
-            <OutputWrapper
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-            >
-              <h2>Output:</h2>
-              <SyntaxHighlighter language="python" style={atomOneDark}>
-                {output}
-              </SyntaxHighlighter>
-            </OutputWrapper>
-          )}
-        </AnimatePresence>
+        <TabContext value={tabValue}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <TabList onChange={handleTabChange} aria-label="output tabs">
+              <Tab label="Output" value="1" />
+              <Tab label="Terminal" value="2" />
+            </TabList>
+          </Box>
+          <TabPanel value="1">
+            <AnimatePresence>
+              {output && (
+                <OutputWrapper
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                >
+                  <SyntaxHighlighter language="python" style={atomOneDark}>
+                    {output}
+                  </SyntaxHighlighter>
+                </OutputWrapper>
+              )}
+            </AnimatePresence>
+          </TabPanel>
+          <TabPanel value="2">
+            <TerminalWrapper ref={terminalRef} />
+          </TabPanel>
+        </TabContext>
         <Fab
           color="secondary"
           style={{ position: 'fixed', bottom: 20, right: 20 }}
