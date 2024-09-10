@@ -4,10 +4,12 @@ import sys
 import io
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "https://python-editor-rho.vercel.app"}})
 
-@app.route('/execute', methods=['POST'])
+@app.route('/execute', methods=['POST', 'OPTIONS'])
 def execute_code():
+    if request.method == 'OPTIONS':
+        return '', 204
     code = request.json['code']
     output = io.StringIO()
     sys.stdout = output
