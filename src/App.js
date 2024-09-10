@@ -133,21 +133,25 @@ function App() {
         terminal.dispose();
       }
     };
-  }, [terminalRef, terminal, isWaitingForInput, inputBuffer]);
+  }, [terminalRef.current]);
 
   const handleInput = async (input) => {
     try {
       const response = await axios.post('https://vuln0sec.pythonanywhere.com/input', { input });
       const newOutput = response.data.output;
       setOutput(prevOutput => prevOutput + newOutput);
-      terminal.writeln(newOutput);
+      if (terminal) {
+        terminal.writeln(newOutput);
+      }
       if (newOutput.includes('input')) {
         setIsWaitingForInput(true);
       }
     } catch (error) {
       console.error('Error:', error);
       setOutput(prevOutput => prevOutput + 'An error occurred while processing input.\n');
-      terminal.writeln('An error occurred while processing input.');
+      if (terminal) {
+        terminal.writeln('An error occurred while processing input.');
+      }
     }
   };
 
@@ -159,19 +163,25 @@ function App() {
   const handleSubmit = async () => {
     setIsLoading(true);
     setOutput('');
-    terminal.clear();
+    if (terminal) {
+      terminal.clear();
+    }
     try {
       const response = await axios.post('https://vuln0sec.pythonanywhere.com/execute', { code });
       const initialOutput = response.data.output;
       setOutput(initialOutput);
-      terminal.writeln(initialOutput);
+      if (terminal) {
+        terminal.writeln(initialOutput);
+      }
       if (initialOutput.includes('input')) {
         setIsWaitingForInput(true);
       }
     } catch (error) {
       console.error('Error:', error);
       setOutput('An error occurred while executing the code.');
-      terminal.writeln('An error occurred while executing the code.');
+      if (terminal) {
+        terminal.writeln('An error occurred while executing the code.');
+      }
     } finally {
       setIsLoading(false);
     }
