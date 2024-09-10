@@ -1,24 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import Editor from "@monaco-editor/react";
-import { ThemeProvider, createTheme } from '@material-ui/core/styles';
-import { Button, IconButton, TextField, Modal, Fab, CircularProgress } from '@material-ui/core';
-import { PlayArrow, Save, FolderOpen, Code } from '@material-ui/icons';
-import styled, { createGlobalStyle } from 'styled-components';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import { Button, IconButton, TextField, Modal, Fab, CircularProgress } from '@mui/material';
+import { PlayArrow, Save, FolderOpen, Code } from '@mui/icons-material';
+import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Light as SyntaxHighlighter } from 'react-syntax-highlighter';
 import python from 'react-syntax-highlighter/dist/esm/languages/hljs/python';
 import { atomOneDark } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 SyntaxHighlighter.registerLanguage('python', python);
-
-const GlobalStyle = createGlobalStyle`
-  body {
-    background-color: #1e1e1e;
-    color: #ffffff;
-    font-family: 'Roboto', sans-serif;
-  }
-`;
 
 const StyledApp = styled.div`
   padding: 20px;
@@ -59,7 +51,7 @@ const ModalContent = styled.div`
 
 const darkTheme = createTheme({
   palette: {
-    type: 'dark',
+    mode: 'dark',
     primary: {
       main: '#bb86fc',
     },
@@ -123,7 +115,6 @@ function App() {
 
   return (
     <ThemeProvider theme={darkTheme}>
-      <GlobalStyle />
       <StyledApp>
         <h1>Python Playground</h1>
         <EditorWrapper>
